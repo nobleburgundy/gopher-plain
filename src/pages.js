@@ -32,6 +32,10 @@ function page({ title, root, body, data, description }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description || `${TEAM.name} men's hockey scores, schedule and stats in plain text.`)}">
 <link rel="stylesheet" href="${root}style.css">
+<link rel="icon" href="${root}favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="${root}favicon-32.png">
+<link rel="apple-touch-icon" href="${root}apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Gophers">
 </head>
 <body>
 <header><pre>${header}</pre></header>
@@ -89,20 +93,21 @@ function gameCard(g, root, today) {
   return box(lines);
 }
 
-// One schedule line, 38 wide: "Fri 30 @ Penn State      *  7:00p BTN"
+// One schedule line, WIDTH wide: "Fri 30 @ Penn State      *  7:00p BTN"
 function scheduleLine(g, root) {
   const loc = g.site === 'away' ? '@ ' : g.site === 'neutral' ? 'vs ' : '';
   const mark = (g.type === 'conf' ? '*' : g.type === 'exhibition' ? '†' : '') + (g.note || '');
+  const rightW = 13; // fits "6:00p Peacock"
   let right;
   if (g.result) {
     const won = g.result === 'W';
-    right = cell(resultLabel(g), 10, { align: 'right', href: g.boxPath ? root + gamePath(g) : null, bold: won });
+    right = cell(resultLabel(g), rightW, { align: 'right', href: g.boxPath ? root + gamePath(g) : null, bold: won });
   } else {
     const tv = g.tv[0] ? ` ${g.tv[0]}` : '';
-    right = cell(timeShort(g.time) + tv, 10, { align: 'right' });
+    right = cell(timeShort(g.time) + tv, rightW, { align: 'right' });
   }
   // Opponent plus its markers share one column so short names leave room for long ones.
-  const oppW = WIDTH - 7 - 10 - 1;
+  const oppW = WIDTH - 7 - rightW - 1;
   const opp = cell(loc + oppLabel(g), oppW - len(mark)) + esc(mark);
   return cell(dayOfMonth(g.date), 7) + opp + ' ' + right;
 }

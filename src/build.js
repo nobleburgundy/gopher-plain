@@ -37,7 +37,10 @@ async function main() {
     games++;
   }
 
-  await fs.copyFile(path.resolve('static/style.css'), path.join(OUT, 'style.css'));
+  // Copy the stylesheet and icons as-is.
+  for (const f of await fs.readdir(path.resolve('static'))) {
+    await fs.copyFile(path.resolve('static', f), path.join(OUT, f));
+  }
   console.log(`Built dist/ with ${games} game pages`);
 }
 

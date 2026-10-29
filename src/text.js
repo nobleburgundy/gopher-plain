@@ -1,7 +1,7 @@
 // Helpers for laying out fixed-width text that may contain links or bold text.
 // Widths are measured on the visible text, so HTML tags don't throw off alignment.
 
-export const WIDTH = 38;
+export const WIDTH = 44;
 
 export const len = (s) => [...String(s)].length;
 

@@ -24,11 +24,12 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0 auto;
   padding: 16px;
-  max-width: calc(38ch + 32px);
+  max-width: calc(44ch + 32px);
   background: var(--bg);
   color: var(--fg);
   font-family: "Courier New", Courier, monospace;
-  font-size: 14px;
+  /* Shrink the text on narrow phones so 44 columns (26.4em in Courier) always fit. */
+  font-size: clamp(11px, calc((100vw - 32px) / 26.4), 15px);
   line-height: 1.35;
 }
 
@@ -55,5 +56,5 @@ b { font-weight: 700; }
 i { font-style: normal; color: var(--muted); }
 
 @media (min-width: 640px) {
-  body { font-size: 15px; padding-top: 32px; }
+  body { padding-top: 32px; }
 }
