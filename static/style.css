@@ -1,0 +1,59 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fffdf8;
+  --fg: #1d1d1d;
+  --muted: #6b6b6b;
+  --link: #7a0019; /* Minnesota maroon */
+  --accent: #ffcc33; /* Minnesota gold */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141414;
+    --fg: #e8e6e1;
+    --muted: #9a9a9a;
+    --link: #ffcc33;
+    --accent: #7a0019;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0 auto;
+  padding: 16px;
+  max-width: calc(38ch + 32px);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+pre {
+  margin: 0 0 1.35em;
+  font: inherit;
+  white-space: pre;
+}
+
+/* Wide tables (stats, standings) scroll sideways instead of stretching the page. */
+.scroll {
+  display: inline-block;
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  vertical-align: top;
+}
+
+header pre { margin-bottom: 1.35em; border-bottom: 1px solid var(--muted); padding-bottom: .5em; }
+footer pre { color: var(--muted); border-top: 1px solid var(--muted); padding-top: .5em; }
+
+a { color: var(--link); text-decoration: none; }
+a:hover, a:focus { text-decoration: underline; }
+b { font-weight: 700; }
+i { font-style: normal; color: var(--muted); }
+
+@media (min-width: 640px) {
+  body { font-size: 15px; padding-top: 32px; }
+}
