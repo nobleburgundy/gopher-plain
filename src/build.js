@@ -12,6 +12,12 @@ async function main() {
   const data = JSON.parse(await fs.readFile(path.join(DATA, 'site.json'), 'utf8'));
   const today = todayCentral();
 
+  // Show opponents' current PairWise rank on games not yet played.
+  const ranks = data.pairwise?.ranks || {};
+  for (const g of data.schedule.games) {
+    if (!g.result && ranks[g.opponent]) g.oppRank = ranks[g.opponent];
+  }
+
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.mkdir(path.join(OUT, 'games'), { recursive: true });
 

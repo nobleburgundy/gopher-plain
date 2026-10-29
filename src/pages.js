@@ -49,10 +49,13 @@ const section = (title, lines) =>
 
 // ---------------------------------------------------------------- shared bits
 
+// Opponent name with its current PairWise rank (set on upcoming games only), e.g. "#12 Penn State".
+const oppLabel = (g) => (g.oppRank ? `#${g.oppRank} ${g.opponent}` : g.opponent);
+
 // Away team on top, home on bottom. Minnesota is listed second at home and at neutral sites.
 function sides(g) {
   const us = { name: TEAM.name, score: g.score?.us, link: null };
-  const them = { name: g.opponent, score: g.score?.them };
+  const them = { name: oppLabel(g), score: g.score?.them };
   return g.site === 'away' ? [us, them] : [them, us];
 }
 
@@ -100,12 +103,12 @@ function scheduleLine(g, root) {
   }
   // Opponent plus its markers share one column so short names leave room for long ones.
   const oppW = WIDTH - 7 - 10 - 1;
-  const opp = cell(loc + g.opponent, oppW - len(mark)) + esc(mark);
+  const opp = cell(loc + oppLabel(g), oppW - len(mark)) + esc(mark);
   return cell(dayOfMonth(g.date), 7) + opp + ' ' + right;
 }
 
 function legend(notes) {
-  const lines = ['@ away  vs neutral site', `* ${TEAM.conference} game  † exhibition`];
+  const lines = ['@ away  vs neutral site', `* ${TEAM.conference} game  † exhibition`, '#n current PairWise rank'];
   for (const [n, text] of Object.entries(notes || {})) lines.push(...wrap(`${n} ${text}`, WIDTH, 2));
   return lines;
 }

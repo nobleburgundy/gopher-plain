@@ -188,17 +188,18 @@ export function parseTeamStats(html) {
 
 // ---------------------------------------------------------------- PairWise
 
-// CHN's PairWise table. Returns { rank, teams } (rank is null if the team isn't listed).
+// CHN's PairWise table. Returns our rank (null if not listed) and every team's rank by name.
 export function parsePairwise(html, teamName) {
   const $ = cheerio.load(html);
   const rows = $('table.pw tbody tr');
   if (!rows.length) throw new Error('PairWise table not found');
-  let rank = null;
+  const ranks = {};
   rows.each((_, tr) => {
     const tds = $(tr).children('td');
-    if (clean(tds.eq(1).text()) === teamName) rank = Number(clean(tds.eq(0).text())) || null;
+    const rank = Number(clean(tds.eq(0).text()));
+    if (rank) ranks[clean(tds.eq(1).text())] = rank;
   });
-  return { rank, teams: rows.length };
+  return { rank: ranks[teamName] ?? null, teams: rows.length, ranks };
 }
 
 export function parseBox(html) {
