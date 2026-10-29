@@ -101,16 +101,28 @@ export function parseSchedule(html) {
 
 // ---------------------------------------------------------------- standings
 
+// Every conference's standings, keyed by conference name.
+export function parseAllStandings(html) {
+  const $ = cheerio.load(html);
+  const out = {};
+  $('table.data').each((_, t) => {
+    const name = clean($(t).find('tr.stats-section').first().text());
+    if (name && $(t).find('thead th').filter((_, th) => clean($(th).text()) === 'GP').length) {
+      out[name] = standingsRows($, $(t));
+    }
+  });
+  if (!Object.keys(out).length) throw new Error('No standings tables found');
+  return out;
+}
+
 // Returns the rows of one conference's standings table.
 export function parseStandings(html, conference) {
-  const $ = cheerio.load(html);
-  let table = null;
-  $('table.data').each((_, t) => {
-    const head = clean($(t).find('tr.stats-section').first().text());
-    if (head === conference) table = $(t);
-  });
-  if (!table) throw new Error(`Standings for ${conference} not found`);
+  const rows = parseAllStandings(html)[conference];
+  if (!rows) throw new Error(`Standings for ${conference} not found`);
+  return rows;
+}
 
+function standingsRows($, table) {
   // Map header labels to column positions so we don't depend on exact order.
   const headers = table.find('thead tr').last().children('th').map((_, th) => clean($(th).text())).get();
   const firstGP = headers.indexOf('GP');
@@ -188,18 +200,37 @@ export function parseTeamStats(html) {
 
 // ---------------------------------------------------------------- PairWise
 
-// CHN's PairWise table. Returns our rank (null if not listed) and every team's rank by name.
+// CHN's PairWise table. Returns our rank (null if not listed), every team's rank by name,
+// and the full rows in ranked order.
 export function parsePairwise(html, teamName) {
   const $ = cheerio.load(html);
-  const rows = $('table.pw tbody tr');
-  if (!rows.length) throw new Error('PairWise table not found');
+  const trs = $('table.pw tbody tr');
+  if (!trs.length) throw new Error('PairWise table not found');
   const ranks = {};
-  rows.each((_, tr) => {
+  const rows = [];
+  trs.each((_, tr) => {
+    const v = (i) => clean($(tr).children('td').eq(i).text());
+    const rank = Number(v(0));
+    if (!rank) return;
+    const team = v(1);
+    ranks[team] = rank;
+    rows.push({ rank, team, pcw: v(2), rpi: v(3), record: v(6).replace(/\s*\(.*\)$/, '') });
+  });
+  return { rank: ranks[teamName] ?? null, teams: rows.length, ranks, rows };
+}
+
+// CHN's NPI table (the NCAA's official selection ranking): { team: { rank, npi } }.
+export function parseNpi(html) {
+  const $ = cheerio.load(html);
+  const out = {};
+  $('#content table.data').first().find('tbody tr').each((_, tr) => {
     const tds = $(tr).children('td');
     const rank = Number(clean(tds.eq(0).text()));
-    if (rank) ranks[clean(tds.eq(1).text())] = rank;
+    const team = clean(tds.eq(1).text());
+    if (rank && team) out[team] = { rank, npi: clean(tds.eq(2).text()) };
   });
-  return { rank: ranks[teamName] ?? null, teams: rows.length, ranks };
+  if (!Object.keys(out).length) throw new Error('NPI table not found');
+  return out;
 }
 
 export function parseBox(html) {

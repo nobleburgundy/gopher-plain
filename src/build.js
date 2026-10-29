@@ -3,7 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { boxKey } from './parse.js';
 import { todayCentral, gamePath } from './format.js';
-import { homePage, schedulePage, standingsPage, statsPage, gamePage } from './pages.js';
+import {
+  homePage, schedulePage, standingsPage, statsPage, rankingsPage, RANKING_SORTS, gamePage,
+} from './pages.js';
 
 const DATA = path.resolve('data');
 const OUT = path.resolve('dist');
@@ -12,10 +14,10 @@ async function main() {
   const data = JSON.parse(await fs.readFile(path.join(DATA, 'site.json'), 'utf8'));
   const today = todayCentral();
 
-  // Show opponents' current PairWise rank on games not yet played.
-  const ranks = data.pairwise?.ranks || {};
+  // Show opponents' current NPI rank on games not yet played.
+  const npi = data.npi || {};
   for (const g of data.schedule.games) {
-    if (!g.result && ranks[g.opponent]) g.oppRank = ranks[g.opponent];
+    if (!g.result && npi[g.opponent]) g.oppRank = npi[g.opponent].rank;
   }
 
   await fs.rm(OUT, { recursive: true, force: true });
@@ -27,6 +29,7 @@ async function main() {
   await write('schedule.html', schedulePage(data));
   await write('standings.html', standingsPage(data));
   await write('stats.html', statsPage(data));
+  for (const [sort, { file }] of Object.entries(RANKING_SORTS)) await write(file, rankingsPage(data, sort));
 
   let games = 0;
   for (const g of data.schedule.games) {

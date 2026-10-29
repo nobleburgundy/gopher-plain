@@ -48,13 +48,10 @@ export function wrap(text, width = WIDTH, indent = 0) {
   return lines.map((l, i) => (i ? ' '.repeat(indent) : '') + esc(l));
 }
 
-// Draw a box around lines. Each line must already be exactly `width - 4` characters wide.
-export function box(lines, width = WIDTH) {
-  return [
-    `┌${'─'.repeat(width - 2)}┐`,
-    ...lines.map((l) => `│ ${l} │`),
-    `└${'─'.repeat(width - 2)}┘`,
-  ].join('\n');
+// A bordered card around lines (each `WIDTH - 4` characters wide). The border is CSS,
+// because Courier New has no box-drawing characters and borrowed ones don't line up.
+export function box(lines) {
+  return `<span class="card">${lines.join('\n')}</span>`;
 }
 
 export const heading = (s) => `<b>${esc(s.toUpperCase())}</b>`;

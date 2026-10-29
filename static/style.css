@@ -42,9 +42,17 @@ pre {
 /* Wide tables (stats, standings) scroll sideways instead of stretching the page. */
 .scroll {
   display: inline-block;
-  max-width: calc(100vw - 32px);
+  /* From the column's left edge to 16px short of the screen's right edge. */
+  max-width: calc(50vw + 50% - 16px);
   overflow-x: auto;
   vertical-align: top;
+}
+
+.card {
+  display: block;
+  width: fit-content;
+  border: 1px solid currentColor;
+  padding: .35em 1ch;
 }
 
 header pre { margin-bottom: 1.35em; border-bottom: 1px solid var(--muted); padding-bottom: .5em; }
@@ -52,6 +60,7 @@ footer pre { color: var(--muted); border-top: 1px solid var(--muted); padding-to
 
 a { color: var(--link); text-decoration: none; }
 a:hover, a:focus { text-decoration: underline; }
+header a { padding: 8px 0; } /* taller tap target; inline padding doesn't move the text */
 b { font-weight: 700; }
 i { font-style: normal; color: var(--muted); }
 

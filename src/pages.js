@@ -8,13 +8,19 @@ import {
 
 // ---------------------------------------------------------------- page shell
 
-function page({ title, root, body, data, description }) {
+const ourNpi = (data) => data.npi?.[TEAM.name]?.rank ?? null;
+
+function page({ title, root, body, data, description, current }) {
   const nav = [
     ['', 'Home'], ['schedule.html', 'Schedule'], ['stats.html', 'Stats'], ['standings.html', 'Standings'],
-  ].map(([href, label]) => `<a href="${root}${href || './'}">${label}</a>`).join('  ');
+    ['rankings.html', 'Rankings'],
+  ].map(([href, label]) => {
+    const here = label === current;
+    return `<a href="${root}${href || './'}"${here ? ' aria-current="page"' : ''}>${here ? `<b>${label}</b>` : label}</a>`;
+  }).join('  ');
 
   const header = [
-    spread(SITE.title.toUpperCase(), (data.pairwise?.rank ? `#${data.pairwise.rank}  ` : '') + seasonLabel(data.season), WIDTH,
+    spread(SITE.title.toUpperCase(), (ourNpi(data) ? `Ranked #${ourNpi(data)}  ` : '') + seasonLabel(data.season), WIDTH,
       { left: { bold: true, href: `${root}./` } }),
     nav,
   ].join('\n');
@@ -53,7 +59,7 @@ const section = (title, lines) =>
 
 // ---------------------------------------------------------------- shared bits
 
-// Opponent name with its current PairWise rank (set on upcoming games only), e.g. "#12 Penn State".
+// Opponent name with its current NPI rank (set on upcoming games only), e.g. "#12 Penn State".
 const oppLabel = (g) => (g.oppRank ? `#${g.oppRank} ${g.opponent}` : g.opponent);
 
 // Away team on top, home on bottom. Minnesota is listed second at home and at neutral sites.
@@ -83,8 +89,7 @@ function gameCard(g, root, today) {
     lines.push(cell(t.name, inner - 4, { bold: won }) + cell(g.result ? t.score : '', 4, { align: 'right', bold: won }));
   }
 
-  const extra = [];
-  if (g.site === 'neutral') extra.push('Neutral site');
+  const extra = [g.site === 'home' ? 'Home' : g.site === 'away' ? 'Away' : 'Neutral site'];
   if (g.type === 'conf') extra.push(TEAM.conference);
   if (g.type === 'exhibition') extra.push('Exhibition');
   if (!g.result && g.tv.length) extra.push(g.tv.join(', '));
@@ -94,9 +99,9 @@ function gameCard(g, root, today) {
 }
 
 // One schedule line, WIDTH wide: "Fri 30 @ Penn State      *  7:00p BTN"
-function scheduleLine(g, root) {
+function scheduleLine(g, root, { notes = true } = {}) {
   const loc = g.site === 'away' ? '@ ' : g.site === 'neutral' ? 'vs ' : '';
-  const mark = (g.type === 'conf' ? '*' : g.type === 'exhibition' ? '†' : '') + (g.note || '');
+  const mark = (g.type === 'conf' ? '*' : g.type === 'exhibition' ? '†' : '') + (notes && g.note ? g.note : '');
   const rightW = 13; // fits "6:00p Peacock"
   let right;
   if (g.result) {
@@ -112,8 +117,17 @@ function scheduleLine(g, root) {
   return cell(dayOfMonth(g.date), 7) + opp + ' ' + right;
 }
 
+// Short key for the markers used in a list of games (home page lists have no full legend).
+function miniKey(games) {
+  const keys = [];
+  if (games.some((g) => g.type === 'conf')) keys.push(`* ${TEAM.conference} game`);
+  if (games.some((g) => g.type === 'exhibition')) keys.push('† exhibition');
+  if (games.some((g) => g.oppRank)) keys.push('#n NPI rank');
+  return keys.length ? [`<i>${esc(keys.join('  '))}</i>`] : [];
+}
+
 function legend(notes) {
-  const lines = ['@ away  vs neutral site', `* ${TEAM.conference} game  † exhibition`, '#n current PairWise rank'];
+  const lines = ['@ away  vs neutral site', `* ${TEAM.conference} game  † exhibition`, '#n current NPI rank'];
   for (const [n, text] of Object.entries(notes || {})) lines.push(...wrap(`${n} ${text}`, WIDTH, 2));
   return lines;
 }
@@ -165,7 +179,7 @@ export function homePage(data, today) {
   if (st && Number(st.row.conf.gp) > 0) {
     summary.push(`${st.place} in the ${TEAM.conference}, ${st.row.conf.pts} pts`);
   }
-  if (data.pairwise?.rank) summary.push(`#${data.pairwise.rank} in the PairWise`);
+  if (ourNpi(data)) summary.push(`#${ourNpi(data)} in the NPI (NCAA ranking)`);
 
   const parts = [section(null, summary)];
   if (next) parts.push(section(next.date === today ? 'Today' : 'Next game', [gameCard(next, root, today)]));
@@ -173,16 +187,18 @@ export function homePage(data, today) {
 
   const later = upcoming.slice(1, 6);
   if (later.length) {
-    parts.push(section('Coming up', [...later.map((g) => scheduleLine(g, root)), '',
-      cell('Full schedule ›', WIDTH, { href: 'schedule.html' })]));
+    parts.push(section('Coming up', [...later.map((g) => scheduleLine(g, root, { notes: false })),
+      ...miniKey(later), '', cell('Full schedule ›', WIDTH, { href: 'schedule.html' })]));
   }
   const recent = played.slice(-5).reverse();
-  if (recent.length) parts.push(section('Recent results', recent.map((g) => scheduleLine(g, root))));
+  if (recent.length) {
+    parts.push(section('Recent results', [...recent.map((g) => scheduleLine(g, root, { notes: false })), ...miniKey(recent)]));
+  }
   if (data.standings.length) {
     parts.push(section(`${TEAM.conference} standings`, standingsTable(data.standings)));
   }
 
-  return page({ title: `${SITE.title} ${seasonLabel(data.season)}`, root, data, body: parts.join('\n') });
+  return page({ title: `${SITE.title} ${seasonLabel(data.season)}`, root, data, body: parts.join('\n'), current: 'Home' });
 }
 
 // ---------------------------------------------------------------- schedule
@@ -210,14 +226,14 @@ export function schedulePage(data) {
   if (lines.length) parts.push(section(month, lines));
   parts.push(section(null, legend(data.schedule.notes)));
 
-  return page({ title: `Schedule · ${SITE.title}`, root, data, body: parts.join('\n') });
+  return page({ title: `Schedule · ${SITE.title}`, root, data, body: parts.join('\n'), current: 'Schedule' });
 }
 
 // ---------------------------------------------------------------- standings
 
 export function standingsPage(data) {
   const body = section(`${TEAM.conference} ${seasonLabel(data.season)}`, standingsTable(data.standings));
-  return page({ title: `Standings · ${SITE.title}`, root: '', data, body });
+  return page({ title: `Standings · ${SITE.title}`, root: '', data, body, current: 'Standings' });
 }
 
 // ---------------------------------------------------------------- stats
@@ -245,7 +261,7 @@ export function statsPage(data) {
       + R(g.gaa, 6) + R(g.svpct, 6, { bold: true }) + R(g.min, 5));
     parts.push(section('Goalies', ['<div class="scroll">' + [head, ...rows].join('\n') + '</div>']));
   }
-  return page({ title: `Stats · ${SITE.title}`, root, data, body: parts.join('\n') });
+  return page({ title: `Stats · ${SITE.title}`, root, data, body: parts.join('\n'), current: 'Stats' });
 }
 
 // ---------------------------------------------------------------- game page
@@ -299,7 +315,11 @@ export function gamePage(data, g, b) {
 
   // Scoring summary. Short team codes come from the box score URL, e.g. /box/final/20261023/ndk/min/
   const [, , , awayCode = 'AWY', homeCode = 'HOM'] = g.boxPath.split('/').filter(Boolean);
-  const code = (side) => (side === 'away' ? awayCode : homeCode).replace(/_/g, '').toUpperCase();
+  // Prefer the line score's short name (UND, MSU); fall back to the URL code (MIN) when it's long.
+  const code = (side) => {
+    const name = names[side === 'away' ? 0 : 1] || '';
+    return len(name) <= 4 ? name : (side === 'away' ? awayCode : homeCode).replace(/_/g, '').toUpperCase();
+  };
   const teamW = 5;
   if (b.goals.length) {
     const lines = [];
@@ -372,4 +392,70 @@ export function gamePage(data, g, b) {
 
   const title = `${b.away.name} ${b.away.score}, ${b.home.name} ${b.home.score} · ${shortDate(g.date)}`;
   return page({ title, root, data, body: parts.join('\n'), description: title });
+}
+
+// ---------------------------------------------------------------- rankings
+
+const CONF_SHORT = {
+  'Atlantic Hockey': 'AHA', 'Big Ten': 'B1G', CCHA: 'CCHA', ECAC: 'ECAC',
+  'Hockey East': 'HE', NCHC: 'NCHC', Independents: 'Ind',
+};
+
+// Two static versions of the page (no JavaScript): sorted by NPI (default) or PairWise.
+// A "Sort:" toggle above the table links between them.
+export const RANKING_SORTS = {
+  npi: { file: 'rankings.html', label: 'NPI', field: 'npiRank' },
+  pw: { file: 'rankings-pairwise.html', label: 'PairWise', field: 'pwRank' },
+};
+
+export function rankingsPage(data, sort = 'npi') {
+  const R = (s, w, o = {}) => cell(s, w, { align: 'right', ...o });
+  const all = data.rankings || [];
+  if (!all.length) {
+    const body = section('National rankings', ['Rankings are only available for the current season.']);
+    return page({ title: `Rankings · ${SITE.title}`, root: '', data, body, current: 'Rankings' });
+  }
+
+  const { field } = RANKING_SORTS[sort];
+  const rows = all.filter((r) => r[field]).sort((a, b) => a[field] - b[field]).slice(0, 50);
+
+  const toggle = 'Sort: ' + Object.entries(RANKING_SORTS).map(([key, s]) => (key === sort
+    ? `<b>${s.label}</b>`
+    : `<a href="${s.file}">${s.label}</a>`)).join(' · ');
+
+  // Most useful columns first so they show on a phone before the table scrolls.
+  // First column is the ranking being sorted by; the other ranking goes on the far right.
+  const byNpi = sort === 'npi';
+  const head = cell(byNpi ? 'NPI' : 'PW', 4) + cell('', 17)
+    + R('W-L-T', 8) + R('+/-', 5) + R('GF', 4) + R('GA', 4) + '  ' + cell('CONF', 5) + R('PCW', 4) + R('RPI', 7)
+    + R(byNpi ? 'PW' : 'NPI', 5);
+  const lines = rows.map((r) => {
+    const us = r.team === TEAM.name;
+    const diff = r.gf !== '' && r.ga !== '' ? Number(r.gf) - Number(r.ga) : '';
+    const diffText = diff === '' ? '' : diff > 0 ? `+${diff}` : String(diff);
+    const [first, last] = byNpi ? [r.npiRank, r.pwRank] : [r.pwRank, r.npiRank];
+    return R(first ?? '', 3, { bold: us }) + ' ' + cell(r.team, 17, { bold: us })
+      + R(r.record, 8) + R(diffText, 5) + R(r.gf, 4) + R(r.ga, 4)
+      + '  ' + cell(CONF_SHORT[r.conf] || r.conf, 5) + R(r.pcw, 4) + R(r.rpi, 7) + R(last ?? '', 5);
+  });
+
+  const key = [
+    "NPI: the NCAA's official ranking, which",
+    '  picks the tournament field',
+    'PW: PairWise rank (fan-built model of',
+    '  the old selection system)',
+    '+/-, GF, GA: goal differential, goals',
+    '  for and against, all games',
+    'PCW: PairWise comparisons won',
+    'RPI: Ratings Percentage Index',
+  ].map((l) => `<i>${esc(l)}</i>`);
+
+  const body = [
+    section(null, [toggle]),
+    section(`National rankings · top ${rows.length} by ${RANKING_SORTS[sort].label}`,
+      ['<div class="scroll">' + [head, ...lines].join('\n') + '</div>']),
+    section(null, key),
+  ].join('\n');
+  const title = `Rankings (${RANKING_SORTS[sort].label}) · ${SITE.title}`;
+  return page({ title, root: '', data, body, current: 'Rankings' });
 }

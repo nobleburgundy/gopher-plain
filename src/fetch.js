@@ -4,7 +4,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { TEAM, SEASON, previousSeason } from './config.js';
 import { getPage } from './http.js';
-import { parseSchedule, parseStandings, parseTeamStats, parseBox, parsePairwise, boxKey } from './parse.js';
+import {
+  parseSchedule, parseAllStandings, parseTeamStats, parseBox, parsePairwise, parseNpi, boxKey,
+} from './parse.js';
 
 const DATA = path.resolve('data');
 const BOXES = path.join(DATA, 'boxes');
@@ -28,8 +30,9 @@ async function main() {
   if (!schedule.games.length) throw new Error('Schedule came back empty; refusing to continue');
 
   console.log('Fetching standings…');
-  const standings = parseStandings(
-    await getPage(`/reports/standings.php?s=${season}&conf=0`), TEAM.conference);
+  const allStandings = parseAllStandings(await getPage(`/reports/standings.php?s=${season}&conf=0`));
+  const standings = allStandings[TEAM.conference];
+  if (!standings) throw new Error(`Standings for ${TEAM.conference} not found`);
 
   console.log('Fetching team stats…');
   let stats = { skaters: [], goalies: [] };
@@ -40,10 +43,17 @@ async function main() {
     console.warn(`  stats unavailable: ${err.message}`);
   }
 
-  // The PairWise ranking is a nice-to-have: if it fails, build the site without it.
-  // CHN's PairWise page only covers the current season.
+  // National rankings are nice-to-haves: if a page fails, build the site without it.
+  // CHN's ranking pages only cover the current season.
+  let npi = {};
   let pairwise = null;
   if (season === SEASON) {
+    console.log('Fetching NPI…');
+    try {
+      npi = parseNpi(await getPage('/ratings/'));
+    } catch (err) {
+      console.warn(`  NPI unavailable: ${err.message}`);
+    }
     console.log('Fetching PairWise…');
     try {
       pairwise = parsePairwise(await getPage('/ratings/pairwise/'), TEAM.name);
@@ -51,6 +61,28 @@ async function main() {
       console.warn(`  PairWise unavailable: ${err.message}`);
     }
   }
+
+  // Rankings page: every team ranked by either system, with records and goals from the standings.
+  const byTeam = {};
+  for (const [conf, rows] of Object.entries(allStandings)) {
+    for (const r of rows) byTeam[r.team] = { conf, ...r.overall };
+  }
+  const pwRows = Object.fromEntries((pairwise?.rows || []).map((r) => [r.team, r]));
+  const rankings = [...new Set([...Object.keys(npi), ...Object.keys(pwRows)])].map((team) => {
+    const st = byTeam[team];
+    const pw = pwRows[team];
+    return {
+      team,
+      npiRank: npi[team]?.rank ?? null,
+      pwRank: pw?.rank ?? null,
+      record: pw?.record || (st ? `${st.w}-${st.l}-${st.t}` : ''),
+      pcw: pw?.pcw ?? '',
+      rpi: pw?.rpi ?? '',
+      conf: st?.conf || '',
+      gf: st?.gf ?? '',
+      ga: st?.ga ?? '',
+    };
+  });
 
   let fetched = 0;
   for (const g of schedule.games) {
@@ -69,7 +101,9 @@ async function main() {
     schedule,
     standings,
     stats,
+    npi,
     pairwise,
+    rankings,
   });
   console.log('Saved data/site.json');
 }
